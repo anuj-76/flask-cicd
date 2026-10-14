@@ -1,0 +1,54 @@
+name: CI-CD
+on:
+  push:
+    branches: [main]
+
+env:
+  IMAGE: public.ecr.aws/h7x1a8j8/flask-app
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 1. Checkout code
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: 3. Test
+        run: |
+          pip install -r requirements.txt
+          pytest
+
+      - name: 4. Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: 5. Login to ECR Public
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: public
+
+      - name: 6. Build Docker image
+        run: docker build -t $IMAGE:${{ github.sha }} .
+
+      - name: 7. Push to ECR
+        run: docker push $IMAGE:${{ github.sha }}
+
+      - name: 8. Deploy to Kubernetes (k3s on EC2)
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > key.pem
+          chmod 600 key.pem
+          sed -i "s|IMAGE|$IMAGE:${{ github.sha }}|" k8s/app.yaml
+          scp -o StrictHostKeyChecking=no -i key.pem k8s/app.yaml ec2-user@${{ secrets.EC2_HOST }}:~/app.yaml
+          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@${{ secrets.EC2_HOST }} "sudo k3s kubectl apply -f ~/app.yaml"
+
+      - name: 9. Verify rollout and health
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ec2-user@${{ secrets.EC2_HOST }} "sudo k3s kubectl rollout status deployment/flask-app --timeout=120s && curl -f http://localhost:30080/health"
