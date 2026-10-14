@@ -32,7 +32,7 @@ PAGE = """
 <body>
   <div class="card">
     <h1>CI/CD Dashboard</h1>
-    <div class="sub">Flask on Docker + Kubernetes (k3s) on AWS EC2</div>
+    <div class="sub">Flask on Docker + Kubernetes (k3s) on AWS EC2 - v2</div>
     <div class="badge" id="badge">Checking...</div>
     <div class="row"><span>Pod name</span><span>{{ pod }}</span></div>
     <div class="row"><span>Server time (UTC)</span><span>{{ now }}</span></div>
