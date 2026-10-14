@@ -8,4 +8,4 @@ def test_health():
 def test_home():
     res = app.test_client().get("/")
     assert res.status_code == 200
-    assert b"XYZ" in res.data
+    assert b"CI/CD Dashboard" in res.data
